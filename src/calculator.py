@@ -36,6 +36,18 @@ def divide(a: Number, b: Number) -> float:
     return a / b
 
 
+def power(a: Number, b: Number) -> Number:
+    """Return `a` raised to the power of `b`.
+
+    Examples:
+        power(2, 3)    -> 8
+        power(9, 0.5)  -> 3.0
+        power(2, -1)   -> 0.5
+        power(0, 0)    -> 1  (follows Python's convention)
+    """
+    return a ** b
+
+
 def average(numbers: list[Number]) -> float:
     """Return the arithmetic mean of a list of numbers.
 
@@ -48,4 +60,5 @@ def average(numbers: list[Number]) -> float:
 if __name__ == "__main__":
     print("2 + 3 =", add(2, 3))
     print("10 / 4 =", divide(10, 4))
+    print("2 ** 10 =", power(2, 10))
     print("avg([1, 2, 3, 4]) =", average([1, 2, 3, 4]))
