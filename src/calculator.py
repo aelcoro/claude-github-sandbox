@@ -51,9 +51,11 @@ def power(a: Number, b: Number) -> Number:
 def average(numbers: list[Number]) -> float:
     """Return the arithmetic mean of a list of numbers.
 
-    NOTE: This function has an intentional edge-case bug for empty lists
-    that you can ask Claude to locate and fix as a test exercise.
+    Raises:
+        ValueError: if `numbers` is empty (the mean of zero values is undefined).
     """
+    if not numbers:
+        raise ValueError("Cannot take the average of an empty list.")
     return sum(numbers) / len(numbers)
 
 

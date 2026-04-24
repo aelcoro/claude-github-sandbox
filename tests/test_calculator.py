@@ -66,3 +66,8 @@ def test_power_negative_base():
 def test_average():
     assert average([1, 2, 3, 4]) == 2.5
     assert average([10]) == 10
+
+
+def test_average_empty_list_raises():
+    with pytest.raises(ValueError):
+        average([])
