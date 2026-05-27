@@ -66,7 +66,12 @@ def error_budget_consumed(actual: float, target: float) -> float:
     If actual = target exactly, consumption = 100%. If actual > target,
     consumption is < 100%. If actual < target, consumption is > 100%.
     """
+    # NEW: handle the case where target is 100% (no error budget at all)
+    # by returning 0 to avoid divide-by-zero.
     error_budget = 100.0 - target
+    if error_budget == 0:
+        return 0.0
+
     actual_errors = 100.0 - actual
     return (actual_errors / error_budget) * 100
 
@@ -99,6 +104,42 @@ def burn_rate(
         return 0.0
 
     return (consumed / 100.0) / window_fraction
+
+
+# NEW: helper to project when the error budget will be exhausted at the
+# current burn rate. Useful for paging on "budget exhausted in <2h".
+def time_to_budget_exhaustion(
+    events: list[Event],
+    target: float,
+    window: timedelta,
+) -> timedelta:
+    """Return how long until the error budget is fully consumed at the
+    current burn rate. Returns ``timedelta.max`` if not burning."""
+    br = burn_rate(events, target, window)
+    if br <= 0:
+        return timedelta.max
+
+    actual = availability(events)
+    consumed_pct = error_budget_consumed(actual, target)
+    remaining_pct = 100 - consumed_pct
+    if remaining_pct <= 0:
+        return timedelta(0)
+
+    # At burn rate `br`, we consume 1 window worth of budget every (1/br) windows.
+    # So time remaining is (remaining_pct / 100) * window / br
+    return timedelta(
+        seconds=(remaining_pct / 100) * window.total_seconds() / br
+    )
+
+
+# NEW: convenience constructor for the "last N minutes" window
+def events_in_last(
+    events: list[Event],
+    minutes: int,
+) -> list[Event]:
+    """Filter events to the last N minutes from now."""
+    cutoff = datetime.utcnow() - timedelta(minutes=minutes)
+    return [e for e in events if e.timestamp > cutoff]
 
 
 def report(
