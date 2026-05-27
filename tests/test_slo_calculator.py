@@ -1,5 +1,5 @@
 """Tests for slo_calculator."""
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -80,17 +80,44 @@ class TestTimeToBudgetExhaustion:
         assert result == timedelta.max
 
     def test_active_burn_returns_positive(self):
-        events = _events(80, 20)
+        # 990 good, 5 bad on a 99% target — ~50% of budget consumed,
+        # burning but not yet exhausted
+        events = _events(990, 5)
         result = time_to_budget_exhaustion(events, target=99.0, window=timedelta(hours=1))
-        # Burn rate is high here, so exhaustion should be near-immediate
-        assert result.total_seconds() >= 0
+        # Result should be positive, finite, and not max (active burn)
+        assert result > timedelta(0)
+        assert result != timedelta.max
+
+    def test_already_exhausted_returns_zero(self):
+        # 50/50 split on a 99% target — budget already gone
+        events = _events(50, 50)
+        result = time_to_budget_exhaustion(events, target=99.0, window=timedelta(hours=1))
+        assert result == timedelta(0)
 
 
 class TestEventsInLast:
-    def test_returns_recent_events(self):
-        events = _events(5, 0)
+    def test_returns_recent_events_only(self):
+        # Build events spanning the last 2 hours, anchored to "now"
+        now = datetime.now(timezone.utc)
+        events = [
+            Event(timestamp=now - timedelta(minutes=10), good=True),
+            Event(timestamp=now - timedelta(minutes=30), good=True),
+            Event(timestamp=now - timedelta(minutes=90), good=False),  # outside window
+            Event(timestamp=now - timedelta(minutes=120), good=False),  # outside window
+        ]
         result = events_in_last(events, minutes=60)
-        # Note: these events are dated Jan 2026, so depending on when the test
-        # runs this might filter them all out. The function works correctly,
-        # the test just needs current data.
-        assert isinstance(result, list)
+        assert len(result) == 2
+        # Both should be the recent ones
+        assert all(e.timestamp > now - timedelta(minutes=60) for e in result)
+
+    def test_empty_list_returns_empty(self):
+        assert events_in_last([], minutes=60) == []
+
+    def test_all_old_returns_empty(self):
+        now = datetime.now(timezone.utc)
+        events = [
+            Event(timestamp=now - timedelta(hours=2), good=True),
+            Event(timestamp=now - timedelta(hours=3), good=False),
+        ]
+        result = events_in_last(events, minutes=60)
+        assert result == []
