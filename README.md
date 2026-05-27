@@ -1,22 +1,25 @@
 # claude-github-sandbox
 
-A tiny Python playground to experiment with Claude + GitHub integrations. It contains a small calculator module, some string helpers, and a pytest suite so there's enough surface area to test features like code review, refactors, bug-fixing, and test generation.
+A small Python playground used to exercise Claude + GitHub Actions integrations
+end-to-end. Contains a tiny SRE-flavoured toolkit (SLO calculation, alert
+grouping) with a pytest suite, so there's enough surface area to test review,
+refactor, bug-finding, and test-generation flows.
 
 ## Project layout
 
 ```
 claude-github-sandbox/
+├── .github/workflows/
+│   └── claude-code-review.yml    # triggers Claude on every PR
 ├── src/
 │   ├── __init__.py
-│   ├── calculator.py       # add, subtract, multiply, divide, average
-│   └── string_utils.py     # reverse, is_palindrome, word_count
+│   ├── slo_calculator.py         # availability, error budget, burn rate
+│   └── alert_grouping.py         # fingerprinting + deduplication
 ├── tests/
-│   ├── test_calculator.py
-│   └── test_string_utils.py
-├── .gitignore
-├── LICENSE                 # MIT
+│   ├── test_slo_calculator.py
+│   └── test_alert_grouping.py
+├── LICENSE                       # MIT
 ├── README.md
-├── SETUP.md                # step-by-step push-to-GitHub + integration guide
 └── requirements.txt
 ```
 
@@ -24,24 +27,36 @@ claude-github-sandbox/
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
+source .venv/bin/activate
 pip install -r requirements.txt
 pytest -v
 ```
 
 All tests should pass out of the box.
 
-## Things to try asking Claude
+## What the modules do
 
-Once the repo is pushed to GitHub, these are fun starting prompts to exercise different capabilities:
+### `slo_calculator`
+Tiny helpers for the standard SRE SLO math: availability from a list of good/bad
+events, error-budget consumption, burn rate over a time window, and a combined
+`report()` that puts it all together.
 
-- "Add a `power(a, b)` function to calculator.py with unit tests."
-- "There's an intentional edge-case bug in `average()` — find and fix it."
-- "Refactor `string_utils.py` to use better type hints and docstrings."
-- "Open an issue describing a new feature: a command-line interface for the calculator."
-- "Review this PR and suggest improvements." (after opening a PR)
-- "Generate additional edge-case tests for `is_palindrome`."
+### `alert_grouping`
+Takes a noisy stream of alerts and collapses duplicates by fingerprinting on
+`service + name + normalised message` (UUIDs and numbers stripped). Useful when
+many alerts of the same underlying incident arrive within a short window.
 
-## Next steps
+## Why this exists
 
-See `SETUP.md` for instructions on creating the GitHub repository and connecting Claude.
+This repo is the test bed for a Claude-powered GitHub Actions workflow that
+reviews every PR. The code is small enough that reviews are fast to read, but
+real enough that the reviewer has something substantive to say — SLO maths and
+fingerprinting have plenty of edge cases.
+
+## Things to try asking Claude in a PR
+
+- "Review this PR for correctness and edge cases."
+- "Suggest additional test cases."
+- "Refactor `slo_calculator.report()` to avoid duplicating work between
+  `availability` and `burn_rate`."
+- "Look for off-by-one errors in the burn-rate calculation."
