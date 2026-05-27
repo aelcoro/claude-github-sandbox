@@ -13,7 +13,7 @@ Concepts:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Iterable
 
 
@@ -114,7 +114,12 @@ def time_to_budget_exhaustion(
     window: timedelta,
 ) -> timedelta:
     """Return how long until the error budget is fully consumed at the
-    current burn rate. Returns ``timedelta.max`` if not burning."""
+    current burn rate.
+
+    Returns ``timedelta.max`` if there is no active burn (no errors or
+    insufficient data). Returns ``timedelta(0)`` if the budget is already
+    exhausted.
+    """
     br = burn_rate(events, target, window)
     if br <= 0:
         return timedelta.max
@@ -125,10 +130,11 @@ def time_to_budget_exhaustion(
     if remaining_pct <= 0:
         return timedelta(0)
 
-    # At burn rate `br`, we consume 1 window worth of budget every (1/br) windows.
-    # So time remaining is (remaining_pct / 100) * window / br
+    # Burn rate `br` means we consume budget `br` times faster than the
+    # allowed rate. At the allowed rate, full budget exhausts in one window.
+    # Time to exhaust the remaining fraction = (remaining/100) * window / br.
     return timedelta(
-        seconds=(remaining_pct / 100) * window.total_seconds() / br
+        seconds=(remaining_pct / 100.0) * window.total_seconds() / br
     )
 
 
@@ -137,8 +143,8 @@ def events_in_last(
     events: list[Event],
     minutes: int,
 ) -> list[Event]:
-    """Filter events to the last N minutes from now."""
-    cutoff = datetime.utcnow() - timedelta(minutes=minutes)
+    """Filter events to the last N minutes from now (UTC, timezone-aware)."""
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=minutes)
     return [e for e in events if e.timestamp > cutoff]
 
 
@@ -150,7 +156,7 @@ def report(
     """Build a full SLO report for the given events and window."""
     if not events:
         # Empty window — treat as fully healthy
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return SLOReport(
             target=target,
             actual=100.0,
